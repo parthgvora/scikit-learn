@@ -51,6 +51,7 @@ from ..random_projection import _sparse_random_matrix
 
 __all__ = ["DecisionTreeClassifier",
            "DecisionTreeRegressor",
+           "SparseTreeClassifier",
            "ExtraTreeClassifier",
            "ExtraTreeRegressor"]
 
@@ -1262,7 +1263,6 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
 
 
 class SparseTreeClassifier(DecisionTreeClassifier):
-    """ Decision tree classifier that applies sparse projection to data. """
     @_deprecate_positional_args
     def __init__(self, *,
                  criterion="gini",
@@ -1294,71 +1294,36 @@ class SparseTreeClassifier(DecisionTreeClassifier):
             random_state=random_state,
             ccp_alpha=ccp_alpha)
 
-    def fit(self, X, y, sample_weight=None, check_input=True, n_components, 
+    def fit(self, X, y, n_components, sample_weight=None, check_input=True, 
                 density='auto', random_state=None):
             
-        """ Apply sparse projection to X, then fit"""
 
         n_features = X.shape[1]
-        A = _sparse_random_matrix(
+        self.A = _sparse_random_matrix(
             n_components=n_components,
             n_features=n_features,
             density=density, 
             random_state=random_state)
         
-        sparse_X = X @ A.T
-
+        sparse_X = X @ self.A.T
+        
         super().fit(
             sparse_X, y,
             sample_weight=sample_weight,
             check_input=check_input)
         return self
 
+    def predict(self, X, check_input=True):
+        sparse_X = X @ self.A.T
+        return super().predict(sparse_X, check_input)
+
     def predict_proba(self, X, check_input=True):
-        """Predict class probabilities of the input samples X.
-
-        The predicted class probability is the fraction of samples of the same
-        class in a leaf.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
-
-        check_input : bool, default=True
-            Allow to bypass several input checking.
-            Don't use this parameter unless you know what you do.
-
-        Returns
-        -------
-        proba : ndarray of shape (n_samples, n_classes) or list of n_outputs \
-            such arrays if n_outputs > 1
-            The class probabilities of the input samples. The order of the
-            classes corresponds to that in the attribute :term:`classes_`.
-        """
-            return super().predict_proba(X, check_input)
+        sparse_X = X @ self.A.T
+        return super().predict_proba(sparse_X, check_input)
 
     def predict_log_proba(self, X):
-        """Predict class log-probabilities of the input samples X.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            The input samples. Internally, it will be converted to
-            ``dtype=np.float32`` and if a sparse matrix is provided
-            to a sparse ``csr_matrix``.
-
-        Returns
-        -------
-        proba : ndarray of shape (n_samples, n_classes) or list of n_outputs \
-            such arrays if n_outputs > 1
-            The class log-probabilities of the input samples. The order of the
-            classes corresponds to that in the attribute :term:`classes_`.
-        """
-
-            return super().predict_log_proba(X)
+        sparse_X = X @ self.A.T    
+        return super().predict_log_proba(sparse_X)
 
 
 class ExtraTreeClassifier(DecisionTreeClassifier):
