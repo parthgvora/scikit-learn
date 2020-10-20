@@ -47,6 +47,8 @@ from ._tree import _build_pruned_tree_ccp
 from ._tree import ccp_pruning_path
 from . import _tree, _splitter, _criterion
 
+from ..random_projection import _sparse_random_matrix
+
 __all__ = ["DecisionTreeClassifier",
            "DecisionTreeRegressor",
            "ExtraTreeClassifier",
@@ -1257,6 +1259,106 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         self.tree_.compute_partial_dependence(
             grid, target_features, averaged_predictions)
         return averaged_predictions
+
+
+class SparseTreeClassifier(DecisionTreeClassifier):
+    """ Decision tree classifier that applies sparse projection to data. """
+    @_deprecate_positional_args
+    def __init__(self, *,
+                 criterion="gini",
+                 splitter="random",
+                 max_depth=None,
+                 min_samples_split=2,
+                 min_samples_leaf=1,
+                 min_weight_fraction_leaf=0.,
+                 max_features="auto",
+                 random_state=None,
+                 max_leaf_nodes=None,
+                 min_impurity_decrease=0.,
+                 min_impurity_split=None,
+                 class_weight=None,
+                 ccp_alpha=0.0,
+                 ):
+        super().__init__(
+            criterion=criterion,
+            splitter=splitter,
+            max_depth=max_depth,
+            min_samples_split=min_samples_split,
+            min_samples_leaf=min_samples_leaf,
+            min_weight_fraction_leaf=min_weight_fraction_leaf,
+            max_features=max_features,
+            max_leaf_nodes=max_leaf_nodes,
+            class_weight=class_weight,
+            min_impurity_decrease=min_impurity_decrease,
+            min_impurity_split=min_impurity_split,
+            random_state=random_state,
+            ccp_alpha=ccp_alpha)
+
+    def fit(self, X, y, sample_weight=None, check_input=True, n_components, 
+                density='auto', random_state=None):
+            
+        """ Apply sparse projection to X, then fit"""
+
+        n_features = X.shape[1]
+        A = _sparse_random_matrix(
+            n_components=n_components,
+            n_features=n_features,
+            density=density, 
+            random_state=random_state)
+        
+        sparse_X = X @ A.T
+
+        super().fit(
+            sparse_X, y,
+            sample_weight=sample_weight,
+            check_input=check_input)
+        return self
+
+    def predict_proba(self, X, check_input=True):
+        """Predict class probabilities of the input samples X.
+
+        The predicted class probability is the fraction of samples of the same
+        class in a leaf.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+
+        check_input : bool, default=True
+            Allow to bypass several input checking.
+            Don't use this parameter unless you know what you do.
+
+        Returns
+        -------
+        proba : ndarray of shape (n_samples, n_classes) or list of n_outputs \
+            such arrays if n_outputs > 1
+            The class probabilities of the input samples. The order of the
+            classes corresponds to that in the attribute :term:`classes_`.
+        """
+            return super().predict_proba(X, check_input)
+
+    def predict_log_proba(self, X):
+        """Predict class log-probabilities of the input samples X.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix} of shape (n_samples, n_features)
+            The input samples. Internally, it will be converted to
+            ``dtype=np.float32`` and if a sparse matrix is provided
+            to a sparse ``csr_matrix``.
+
+        Returns
+        -------
+        proba : ndarray of shape (n_samples, n_classes) or list of n_outputs \
+            such arrays if n_outputs > 1
+            The class log-probabilities of the input samples. The order of the
+            classes corresponds to that in the attribute :term:`classes_`.
+        """
+
+            return super().predict_log_proba(X)
 
 
 class ExtraTreeClassifier(DecisionTreeClassifier):
