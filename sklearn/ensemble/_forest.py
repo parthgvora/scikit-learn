@@ -54,7 +54,7 @@ from ..base import ClassifierMixin, RegressorMixin, MultiOutputMixin
 from ..metrics import r2_score
 from ..preprocessing import OneHotEncoder
 from ..tree import (DecisionTreeClassifier, DecisionTreeRegressor,
-                    ExtraTreeClassifier, ExtraTreeRegressor)
+                    ExtraTreeClassifier, ExtraTreeRegressor, ObliqueTreeClassifier)
 from ..tree._tree import DTYPE, DOUBLE
 from ..utils import check_random_state, check_array, compute_sample_weight
 from ..exceptions import DataConversionWarning
@@ -68,6 +68,7 @@ from ..utils.validation import _deprecate_positional_args
 
 __all__ = ["RandomForestClassifier",
            "RandomForestRegressor",
+           "ObliqueForestClassifier",
            "ExtraTreesClassifier",
            "ExtraTreesRegressor",
            "RandomTreesEmbedding"]
@@ -1487,6 +1488,65 @@ class RandomForestRegressor(ForestRegressor):
         self.min_impurity_decrease = min_impurity_decrease
         self.min_impurity_split = min_impurity_split
         self.ccp_alpha = ccp_alpha
+
+class ObliqueForestClassifier(ForestClassifier):
+    @_deprecate_positional_args
+    def __init__(self,
+                 n_estimators=100, *,
+                 criterion="gini",
+                 max_depth=None,
+                 feature_combinations=1,
+                 min_samples_split=2,
+                 min_samples_leaf=1,
+                 min_weight_fraction_leaf=0.,
+                 max_features="auto",
+                 max_leaf_nodes=None,
+                 min_impurity_decrease=0.,
+                 min_impurity_split=None,
+                 bootstrap=True,
+                 oob_score=False,
+                 n_jobs=None,
+                 random_state=None,
+                 verbose=0,
+                 warm_start=False,
+                 class_weight=None,
+                 ccp_alpha=0.0,
+                 max_samples=None):
+        
+        
+        super().__init__(
+            base_estimator=ObliqueTreeClassifier(),
+            n_estimators=n_estimators,
+            estimator_params=("criterion", "max_depth", "feature_combinations", "min_samples_split",
+                              "min_samples_leaf", "min_weight_fraction_leaf",
+                              "max_features", "max_leaf_nodes",
+                              "min_impurity_decrease", "min_impurity_split",
+                              "random_state", "ccp_alpha"),
+            bootstrap=bootstrap,
+            oob_score=oob_score,
+            n_jobs=n_jobs,
+            random_state=random_state,
+            verbose=verbose,
+            warm_start=warm_start,
+            class_weight=class_weight,
+            max_samples=max_samples)
+
+        self.feature_combinations=feature_combinations
+        self.criterion = criterion
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.min_weight_fraction_leaf = min_weight_fraction_leaf
+        self.max_features = max_features
+        self.max_leaf_nodes = max_leaf_nodes
+        self.min_impurity_decrease = min_impurity_decrease
+        self.min_impurity_split = min_impurity_split
+        self.ccp_alpha = ccp_alpha
+
+    #TODO: this is a hacky solution; projected X needs to be in the right dimension
+    def _validate_X_predict(self, X):
+        assert self.n_features == np.ceil(X.shape[1] / self.feature_combinations)
+        
 
 
 class ExtraTreesClassifier(ForestClassifier):

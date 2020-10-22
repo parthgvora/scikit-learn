@@ -51,7 +51,7 @@ from ..random_projection import _sparse_random_matrix
 
 __all__ = ["DecisionTreeClassifier",
            "DecisionTreeRegressor",
-           "SparseTreeClassifier",
+           "ObliqueTreeClassifier",
            "ExtraTreeClassifier",
            "ExtraTreeRegressor"]
 
@@ -1262,12 +1262,13 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
         return averaged_predictions
 
 
-class SparseTreeClassifier(DecisionTreeClassifier):
+class ObliqueTreeClassifier(DecisionTreeClassifier):
     @_deprecate_positional_args
     def __init__(self, *,
                  criterion="gini",
                  splitter="random",
                  max_depth=None,
+                 feature_combinations=1,
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
@@ -1279,6 +1280,8 @@ class SparseTreeClassifier(DecisionTreeClassifier):
                  class_weight=None,
                  ccp_alpha=0.0,
                  ):
+
+
         super().__init__(
             criterion=criterion,
             splitter=splitter,
@@ -1293,20 +1296,27 @@ class SparseTreeClassifier(DecisionTreeClassifier):
             min_impurity_split=min_impurity_split,
             random_state=random_state,
             ccp_alpha=ccp_alpha)
+        
+        self.feature_combinations=feature_combinations
 
-    def fit(self, X, y, n_components, sample_weight=None, check_input=True, 
+    def fit(self, X, y, sample_weight=None, check_input=True, 
                 density='auto', random_state=None):
             
 
-        n_features = X.shape[1]
-        self.A = _sparse_random_matrix(
-            n_components=n_components,
-            n_features=n_features,
+        # Calculate number of projected dimensions
+        n_projdims = int(np.ceil(X.shape[1] / self.feature_combinations))
+
+        # Generate random projection matrix
+        self.projmat = _sparse_random_matrix(
+            n_components=n_projdims,
+            n_features=X.shape[1],
             density=density, 
             random_state=random_state)
         
-        sparse_X = X @ self.A.T
+        # Project X using sparse random matrix
+        sparse_X = np.array(X @ self.projmat.T, dtype=np.float32)
         
+        # Fit decision tree on sparse projections
         super().fit(
             sparse_X, y,
             sample_weight=sample_weight,
@@ -1314,15 +1324,15 @@ class SparseTreeClassifier(DecisionTreeClassifier):
         return self
 
     def predict(self, X, check_input=True):
-        sparse_X = X @ self.A.T
+        sparse_X = np.array(X @ self.projmat.T, dtype=np.float32)
         return super().predict(sparse_X, check_input)
 
     def predict_proba(self, X, check_input=True):
-        sparse_X = X @ self.A.T
+        sparse_X = np.array(X @ self.projmat.T, dtype=np.float32)
         return super().predict_proba(sparse_X, check_input)
 
     def predict_log_proba(self, X):
-        sparse_X = X @ self.A.T    
+        sparse_X = np.array(X @ self.projmat.T, dtype=np.float32)
         return super().predict_log_proba(sparse_X)
 
 
