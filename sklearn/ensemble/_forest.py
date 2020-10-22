@@ -1545,7 +1545,9 @@ class ObliqueForestClassifier(ForestClassifier):
 
     #TODO: this is a hacky solution; projected X needs to be in the right dimension
     def _validate_X_predict(self, X):
-        assert self.n_features == np.ceil(X.shape[1] / self.feature_combinations)
+        n_features = self.n_features_ #self.estimators_[0].n_features
+        assert n_features == np.ceil(X.shape[1] / self.feature_combinations)
+        return X
         
 
 
