@@ -10,6 +10,7 @@ from ._forest import RandomForestRegressor
 from ._forest import RandomTreesEmbedding
 from ._forest import ExtraTreesClassifier
 from ._forest import ExtraTreesRegressor
+from ._forest import ObliqueForestClassifier
 from ._bagging import BaggingClassifier
 from ._bagging import BaggingRegressor
 from ._iforest import IsolationForest
@@ -32,6 +33,7 @@ if typing.TYPE_CHECKING:
 __all__ = ["BaseEnsemble",
            "RandomForestClassifier", "RandomForestRegressor",
            "RandomTreesEmbedding", "ExtraTreesClassifier",
+           "ObliqueForestClassifier",
            "ExtraTreesRegressor", "BaggingClassifier",
            "BaggingRegressor", "IsolationForest", "GradientBoostingClassifier",
            "GradientBoostingRegressor", "AdaBoostClassifier",

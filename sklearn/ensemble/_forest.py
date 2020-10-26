@@ -1496,6 +1496,7 @@ class ObliqueForestClassifier(ForestClassifier):
                  criterion="gini",
                  max_depth=None,
                  feature_combinations=1,
+                 density="auto",
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
@@ -1517,7 +1518,8 @@ class ObliqueForestClassifier(ForestClassifier):
         super().__init__(
             base_estimator=ObliqueTreeClassifier(),
             n_estimators=n_estimators,
-            estimator_params=("criterion", "max_depth", "feature_combinations", "min_samples_split",
+            estimator_params=("criterion", "max_depth", "feature_combinations", 
+                              "density", "min_samples_split",
                               "min_samples_leaf", "min_weight_fraction_leaf",
                               "max_features", "max_leaf_nodes",
                               "min_impurity_decrease", "min_impurity_split",
@@ -1532,6 +1534,7 @@ class ObliqueForestClassifier(ForestClassifier):
             max_samples=max_samples)
 
         self.feature_combinations=feature_combinations
+        self.density=density
         self.criterion = criterion
         self.max_depth = max_depth
         self.min_samples_split = min_samples_split
@@ -1543,13 +1546,24 @@ class ObliqueForestClassifier(ForestClassifier):
         self.min_impurity_split = min_impurity_split
         self.ccp_alpha = ccp_alpha
 
-    #TODO: this is a hacky solution; projected X needs to be in the right dimension
+    # Since estimators operate on projections, this needs to be overwritten.    
+    # Testing that dimension after projection is valid
+    # Check_input is always true for Forest Classifier _validate_X_predict
     def _validate_X_predict(self, X):
-        n_features = self.estimators_[0].n_features_  
-        if(n_features != np.ceil(X.shape[1] / self.feature_combinations)):
-            print(n_features)
-            print(np.ceil(X.shape[1] / self.feature_combinations))
-            raise ValueError
+
+        X = check_array(X, dtype=DTYPE, accept_sparse="csr")
+        if issparse(X) and (X.indices.dtype != np.intc or
+                            X.indptr.dtype != np.intc):
+            raise ValueError("No support for np.int64 index based "
+                             "sparse matrices")
+
+        n_features = np.ceil(X.shape[1] / self.feature_combinations) 
+        if(n_features != self.estimators_[0].n_features_):
+            raise ValueError("Number of features of the model must "
+                             "match the input after projection. "
+                             "model n_features after projection  is %s and "
+                             "input n_features after projection is %s "
+                             % (self.estimators_[0].n_features_, n_features))
 
         return X
         

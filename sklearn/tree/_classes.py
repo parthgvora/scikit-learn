@@ -1269,6 +1269,7 @@ class ObliqueTreeClassifier(DecisionTreeClassifier):
                  splitter="random",
                  max_depth=None,
                  feature_combinations=1,
+                 density="auto",
                  min_samples_split=2,
                  min_samples_leaf=1,
                  min_weight_fraction_leaf=0.,
@@ -1281,6 +1282,8 @@ class ObliqueTreeClassifier(DecisionTreeClassifier):
                  ccp_alpha=0.0,
                  ):
 
+        self.feature_combinations=feature_combinations
+        self.density = density
 
         super().__init__(
             criterion=criterion,
@@ -1297,12 +1300,11 @@ class ObliqueTreeClassifier(DecisionTreeClassifier):
             random_state=random_state,
             ccp_alpha=ccp_alpha)
         
-        self.feature_combinations=feature_combinations
-
-    def fit(self, X, y, sample_weight=None, check_input=True, 
-                density='auto', random_state=None):
+    def fit(self, X, y, sample_weight=None, check_input=True, random_state=None):
             
 
+        X = np.array(X, dtype=np.float32)
+        y = np.array(y, dtype=np.float32)
         # Calculate number of projected dimensions
         n_projdims = int(np.ceil(X.shape[1] / self.feature_combinations))
 
@@ -1310,8 +1312,13 @@ class ObliqueTreeClassifier(DecisionTreeClassifier):
         self.projmat = _sparse_random_matrix(
             n_components=n_projdims,
             n_features=X.shape[1],
-            density=density, 
+            density=self.density, 
             random_state=random_state)
+
+        if self.density < 1:
+            self.projmat = self.projmat.toarray()
+
+        np.sign(self.projmat, self.projmat)
         
         # Project X using sparse random matrix
         sparse_X = np.array(X @ self.projmat.T, dtype=np.float32)
