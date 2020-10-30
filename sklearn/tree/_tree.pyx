@@ -1230,6 +1230,77 @@ cdef class Tree:
                 raise ValueError("Total weight should be 1.0 but was %.9f" %
                                  total_weight)
 
+cdef class ObliqueTree(Tree):
+        
+    # cinit of Tree will be called first
+    # So now all that needs to be done is add a dictionary
+    def __cinit__(self, int n_features, np.ndarray[SIZE_t, ndim=1] n_classes,
+                  int n_outputs):
+        
+        self.proj_mats = {}
+
+    # add an oblique node
+    # use Tree's _add_node function, and store the projection matrix
+    cdef SIZE_t _add_obl_node(self, SIZE_t parent, bint is_left, bint is_leaf,
+                          SIZE_t feature, double threshold, double impurity,
+                          SIZE_t n_node_samples,
+                          double weighted_n_node_samples,
+                          np.ndarray proj_mat) nogil except -1:
+        
+        node_id = Tree._add_node(self, parent, is_left, is_leaf,
+                          feature, threshold, impurity,
+                          n_node_samples,
+                          weighted_n_node_samples)
+
+        with gil:
+            self.proj_mats[node_id] = proj_mat
+
+        return node_id
+
+    # Only for dense matrices right now
+    cpdef np.ndarray obl_predict(self, object X):
+        
+        # Check input
+        if not isinstance(X, np.ndarray):
+            raise ValueError("X should be in np.ndarray format, got %s"
+                             % type(X))
+
+        if X.dtype != DTYPE:
+            raise ValueError("X.dtype should be np.float32, got %s" % X.dtype)
+
+        # Extract input
+        #cdef const DTYPE_t[:, :] X_ndarray = X
+        cdef DTYPE_t[:, :] X_proj = X @ self.proj_mats[0]
+        cdef SIZE_t n_samples = X.shape[0]
+
+        # Initialize output
+        cdef np.ndarray[SIZE_t] out = np.zeros((n_samples,), dtype=np.intp)
+        cdef SIZE_t* out_ptr = <SIZE_t*> out.data
+
+        # Initialize auxiliary data-structure
+        cdef Node* node = NULL
+        cdef SIZE_t i = 0
+        cdef SIZE_t node_id = 0
+
+        with nogil:
+            for i in range(n_samples):
+                node = self.nodes
+                with gil:
+                    X_proj = X @ self.proj_mats[node_id] 
+
+                # While node not a leaf
+                while node.left_child != _TREE_LEAF:
+                    # ... and node.right_child != _TREE_LEAF:
+                    if X_proj[i, node.feature] <= node.threshold:
+                        node_id = node.left_child
+                        node = &self.nodes[node.left_child]
+                    else:
+                        node_id = node.right_child
+                        node = &self.nodes[node.right_child]
+
+                out_ptr[i] = <SIZE_t>(node - self.nodes)  # node offset
+
+        return out
 
 # =============================================================================
 # Build Pruned Tree
