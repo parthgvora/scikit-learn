@@ -39,6 +39,8 @@ from ._utils cimport PriorityHeapRecord
 from ._utils cimport safe_realloc
 from ._utils cimport sizet_ptr_to_ndarray
 
+from ..random_projection import _sparse_random_matrix
+
 cdef extern from "numpy/arrayobject.h":
     object PyArray_NewFromDescr(PyTypeObject* subtype, np.dtype descr,
                                 int nd, np.npy_intp* dims,
@@ -115,6 +117,7 @@ cdef class TreeBuilder:
                                            order="C")
 
         return X, y, sample_weight
+
 
 # Depth first builder ---------------------------------------------------------
 
