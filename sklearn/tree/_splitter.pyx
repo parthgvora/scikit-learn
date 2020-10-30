@@ -254,7 +254,6 @@ cdef class BaseDenseSplitter(Splitter):
         self.X = X
         return 0
 
-
 cdef class BestSplitter(BaseDenseSplitter):
     """Splitter for finding the best split."""
     def __reduce__(self):
@@ -454,6 +453,30 @@ cdef class BestSplitter(BaseDenseSplitter):
         n_constant_features[0] = n_total_constants
         return 0
 
+cdef class ObliqueSplitter(BestSplitter):
+    cdef int initialize(self,
+                  object X,
+                  const DOUBLE_t[:, ::1] y,
+                  DOUBLE_t* sample_weight,
+                  SIZE_t proj_dims) except -1:
+    
+        dummy_X = np.zeros((X.shape[0], proj_dims))
+        BestSplitter.init(self, dummy_X, y, sample_weight)
+        self.X_orig = X
+    
+    def __reduce__(self):
+        return (ObliqueSplitter, (self.criterion,
+                               self.max_features,
+                               self.min_samples_leaf,
+                               self.min_weight_leaf,
+                               self.random_state), self.__getstate__())
+
+    cdef int obl_node_split(self, double impurity, SplitRecord* split,
+                        SIZE_t* n_constant_features, np.ndarray proj_mat
+                        ):
+        # projmat must be size (n_features x proj_dims)    
+        self.X = self.X_orig @ proj_mat
+        return BestSplitter.node_split(self, impurity, split, n_constant_features)
 
 # Sort n-element arrays pointed to by Xf and samples, simultaneously,
 # by the values in Xf. Algorithm: Introsort (Musser, SP&E, 1997).
