@@ -457,8 +457,9 @@ cdef class ObliqueSplitter(BestSplitter):
     cdef int initialize(self,
                   object X,
                   const DOUBLE_t[:, ::1] y,
+                  const SIZE_t proj_dims,
                   DOUBLE_t* sample_weight,
-                  SIZE_t proj_dims) except -1:
+                  ) except -1:
     
         dummy_X = np.zeros((X.shape[0], proj_dims))
         BestSplitter.init(self, dummy_X, y, sample_weight)
@@ -471,11 +472,15 @@ cdef class ObliqueSplitter(BestSplitter):
                                self.min_weight_leaf,
                                self.random_state), self.__getstate__())
 
-    cdef int obl_node_split(self, double impurity, SplitRecord* split,
-                        SIZE_t* n_constant_features, np.ndarray proj_mat
-                        ):
+    # Function must be nogil, so it must not receive any python types
+    cdef int obl_node_split(self, double impurity, 
+                        np.ndarray proj_mat,
+                        SplitRecord* split,
+                        SIZE_t* n_constant_features) nogil except -1:
         # projmat must be size (n_features x proj_dims)    
-        self.X = self.X_orig @ proj_mat
+        with gil:
+            self.X = self.X_orig @ proj_mat
+        
         return BestSplitter.node_split(self, impurity, split, n_constant_features)
 
 # Sort n-element arrays pointed to by Xf and samples, simultaneously,
